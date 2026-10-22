@@ -7,6 +7,10 @@ const { normalizeConfig, navigationURL } = require('./config.cjs');
 const { VpnController } = require('./vpn.cjs');
 const { MieruEngine } = require('./engine.cjs');
 
+// CI launches the actual signed application in a fresh, disconnected profile.
+const smoke = process.env.MIERU_BROWSER_SMOKE === '1';
+if (smoke) app.setPath('userData', require('node:fs').mkdtempSync(path.join(require('node:os').tmpdir(), 'mieru-packaged-smoke-')));
+
 app.commandLine.appendSwitch('disable-quic');
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
@@ -236,6 +240,13 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
     addTab(); settingsOpen = !preferences.configured;
     await win.loadFile(uiFile);
     send();
+    if (smoke) {
+      const result = await win.webContents.executeJavaScript("window.browser.command('state')");
+      if (!result.ok || result.result.vpn.mode !== 'blocked' || !result.result.settingsOpen) throw new Error('Packaged first-run state is invalid');
+      console.log('MIERU_PACKAGED_SMOKE_OK');
+      app.quit();
+      return;
+    }
     if (preferences.configured && preferences.autoConnect) {
       exclusive(async () => { await vpn.connect(await readConfig()); restoreActive(); }).catch(() => send());
     }

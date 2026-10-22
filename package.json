@@ -1,7 +1,7 @@
 {
   "name": "mieru-browser",
   "productName": "Mieru Browser",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Chromium browser with an integrated Mieru connection switch",
   "license": "GPL-3.0-only",
   "author": "Mieru Browser contributors",
@@ -27,7 +27,16 @@
     ],
     "directories": { "output": "dist" },
     "artifactName": "Mieru-Browser-${version}-${os}-${arch}.${ext}",
-    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.productivity" },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": true,
+      "notarize": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
+      "binaries": ["Contents/Resources/mieru/mieru"]
+    },
     "win": { "target": ["nsis"] },
     "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true },
     "linux": { "target": ["dir"] }

@@ -48,8 +48,9 @@ jobs:
       - run: python scripts/fetch-mieru.py --os ${{ matrix.os }} --arch ${{ matrix.arch }}
       - run: npm test
       - run: npm run dist -- --${{ matrix.os }} --${{ matrix.arch }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify Mac signature and packaged launch
+        if: matrix.os == 'mac'
+        run: node scripts/verify-mac.cjs ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
           name: Mieru-Browser-${{ matrix.os }}-${{ matrix.arch }}
@@ -61,12 +62,13 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -74,4 +76,10 @@ jobs:
       - name: Publish installers
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --generate-notes --prerelease
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if gh release view "$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; preserving published files"
+          else
+            gh release create "$version" artifacts/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --generate-notes --prerelease
+          fi
