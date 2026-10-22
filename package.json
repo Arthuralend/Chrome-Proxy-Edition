@@ -1,0 +1,35 @@
+{
+  "name": "mieru-browser",
+  "productName": "Mieru Browser",
+  "version": "0.1.0",
+  "description": "Chromium browser with an integrated Mieru connection switch",
+  "license": "GPL-3.0-only",
+  "author": "Mieru Browser contributors",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "smoke": "electron scripts/smoke.cjs",
+    "engine": "python3 scripts/fetch-mieru.py",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.mierubrowser.desktop",
+    "asar": true,
+    "files": ["src/**/*", "package.json", "README.md", "LICENSE"],
+    "extraResources": [
+      { "from": "resources/mieru/${os}-${arch}", "to": "mieru", "filter": ["**/*"] },
+      { "from": "resources/MIERU-LICENSE.txt", "to": "MIERU-LICENSE.txt" }
+    ],
+    "directories": { "output": "dist" },
+    "artifactName": "Mieru-Browser-${version}-${os}-${arch}.${ext}",
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.productivity" },
+    "win": { "target": ["nsis"] },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true },
+    "linux": { "target": ["dir"] }
+  }
+}

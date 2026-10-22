@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
+  <title>Mieru Browser</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="tabstrip"><div class="brand">◈</div><div id="tabs"></div><button id="new-tab" title="Новая вкладка">+</button><span class="edition">MIERU / BROWSER</span></div>
+    <div class="toolbar">
+      <button id="back" title="Назад">←</button><button id="forward" title="Вперёд">→</button><button id="reload" title="Обновить">↻</button><button id="home" title="Главная">⌂</button>
+      <form id="address-form"><span class="address-icon">⌕</span><input id="address" aria-label="Адрес или поиск" placeholder="Введите адрес или поисковый запрос" autocomplete="off" spellcheck="false"></form>
+      <button id="bookmark" title="Добавить или удалить закладку">☆</button>
+      <button id="vpn" class="vpn-pill">● VPN</button><button id="settings" title="Настройки">⚙</button>
+    </div>
+    <div class="statusline"><span id="connection-status">Соединение заблокировано</span><span>Chromium · Mieru</span></div>
+  </header>
+  <main id="home-panel">
+    <div class="eyebrow">ВАШЕ ОКНО В ИНТЕРНЕТ</div>
+    <h1>Открывайте больше.<br><span>Подключайтесь спокойно.</span></h1>
+    <p class="intro">Привычный браузер. Подключение Mieru — одной кнопкой.</p>
+    <form id="search-form" class="search-box"><span>⌕</span><input id="search" aria-label="Поиск в интернете" placeholder="Поиск в интернете или адрес сайта"><button type="submit">→</button></form>
+    <section class="connection-card"><div class="shield">◈</div><div class="connection-copy"><strong id="card-title">Защищённое подключение</strong><p id="card-description">Добавьте настройки своего сервера, чтобы начать.</p></div><button id="card-connect" class="primary">Настроить Mieru</button></section>
+    <div id="page-error" role="alert"></div>
+    <section class="saved"><div class="saved-heading"><span>ЗАКЛАДКИ</span><button id="history">История</button></div><div id="bookmarks"></div></section>
+    <footer>Подключение действует внутри этого браузера. Другие приложения используют свою сеть.</footer>
+  </main>
+  <section id="settings-panel" hidden>
+    <div class="settings-heading"><div><div class="eyebrow">ПЕРВЫЙ ШАГ</div><h2>Подключите свой Mieru</h2></div><button id="close-settings" title="Закрыть настройки">✕</button></div>
+    <p>Вставьте клиентскую JSON-конфигурацию. Настройки сохраняются на этом устройстве; пароль не попадает в исходный код.</p>
+    <label for="config">Конфигурация Mieru</label>
+    <textarea id="config" spellcheck="false" placeholder='{"profiles": [{"profileName": "default", "user": {"name": "…", "password": "…"}, "servers": [{"domainName": "…", "portBindings": [{"port": 443, "protocol": "TCP"}]}]}], "activeProfile": "default"}'></textarea>
+    <p class="hint">Нужна полная конфигурация клиента с profiles и activeProfile. Ссылки mieru:// пока не поддерживаются. Локальные порты браузер выберет сам.</p>
+    <label class="checkbox"><input type="checkbox" id="auto-connect" checked> Подключаться автоматически при запуске</label>
+    <div class="privacy-note">При включённой защите браузер не переключается на прямое соединение. Пока подключение не подтверждено, страницы заблокированы.</div>
+    <div class="settings-actions"><span id="settings-status" role="status"></span><button id="save-config" class="primary">Сохранить и подключиться</button></div>
+  </section>
+  <dialog id="history-dialog"><div class="settings-heading"><h2>История</h2><button id="close-history">✕</button></div><div id="history-list"></div></dialog>
+  <div id="toast" role="status" hidden></div>
+  <script src="renderer.js"></script>
+</body>
+</html>

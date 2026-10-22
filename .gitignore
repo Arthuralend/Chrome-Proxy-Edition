@@ -1,0 +1,10 @@
+node_modules/
+dist/
+resources/mieru/*
+!resources/mieru/.gitkeep
+*.enc
+*.conf.pb
+runtime-*.json
+.env
+.DS_Store
+__pycache__/
