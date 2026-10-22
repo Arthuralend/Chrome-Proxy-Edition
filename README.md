@@ -16,6 +16,10 @@
 
 ## Установка готовой сборки
 
+**[Скачать установщики из Releases — вход в GitHub не требуется](https://github.com/Arthuralend/Chrome-Proxy-Edition/releases/tag/v0.1.0).** Выберите `.dmg` для своего Mac или `.exe` для Windows.
+
+Альтернативно, для последующих тестовых сборок (требуется вход в GitHub):
+
 В GitHub откройте **Actions → Build desktop apps → успешный запуск → Artifacts**:
 
 | Система | Артефакт | Установка |
