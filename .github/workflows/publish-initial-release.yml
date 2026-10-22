@@ -1,0 +1,44 @@
+name: Publish initial download links
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-initial-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 39703241775
+          path: installers
+          merge-multiple: true
+      - name: Publish tested installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > /tmp/release-notes.md <<'NOTES'
+          First experimental build of Mieru Browser (Chromium / Electron).
+
+          Downloads:
+          - mac-arm64.dmg: Mac Apple Silicon (M1/M2/M3/M4 and later).
+          - mac-x64.dmg: Mac Intel.
+          - win-x64.exe: Windows x64.
+
+          Paste your Mieru client JSON configuration on first launch.
+          Installers are unsigned. Real-server connectivity and DNS/WebRTC leak auditing are not yet completed.
+          Source commit: b209e3a463d9bf282c6e89bf957a136b4554093d.
+          NOTES
+          if gh release view v0.1.0 >/dev/null 2>&1; then
+            gh release upload v0.1.0 installers/*.dmg installers/*.exe installers/*.zip --clobber
+          else
+            gh release create v0.1.0 installers/*.dmg installers/*.exe installers/*.zip --target b209e3a463d9bf282c6e89bf957a136b4554093d --title "Mieru Browser 0.1.0 — Windows and macOS" --notes-file /tmp/release-notes.md --prerelease
+          fi
