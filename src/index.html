@@ -4,36 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
-  <title>Mieru Browser</title>
+  <title>Chrome Proxy Edition</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <div class="tabstrip"><div class="brand">◈</div><div id="tabs"></div><button id="new-tab" title="Новая вкладка">+</button><span class="edition">MIERU / BROWSER</span></div>
+    <div class="tabstrip"><div class="brand">◈</div><div id="tabs"></div><button id="new-tab" title="Новая вкладка">+</button><span class="edition">CHROME / PROXY</span></div>
     <div class="toolbar">
       <button id="back" title="Назад">←</button><button id="forward" title="Вперёд">→</button><button id="reload" title="Обновить">↻</button><button id="home" title="Главная">⌂</button>
       <form id="address-form"><span class="address-icon">⌕</span><input id="address" aria-label="Адрес или поиск" placeholder="Введите адрес или поисковый запрос" autocomplete="off" spellcheck="false"></form>
       <button id="bookmark" title="Добавить или удалить закладку">☆</button>
       <button id="vpn" class="vpn-pill">● VPN</button><button id="settings" title="Настройки">⚙</button>
     </div>
-    <div class="statusline"><span id="connection-status">Соединение заблокировано</span><span>Chromium · Mieru</span></div>
+    <div class="statusline"><span id="connection-status">Соединение заблокировано</span><span>Chromium · AnyTLS</span></div>
   </header>
   <main id="home-panel">
     <div class="eyebrow">ВАШЕ ОКНО В ИНТЕРНЕТ</div>
     <h1>Открывайте больше.<br><span>Подключайтесь спокойно.</span></h1>
-    <p class="intro">Привычный браузер. Подключение Mieru — одной кнопкой.</p>
+    <p class="intro">Привычный браузер. Подключение AnyTLS — одной кнопкой.</p>
     <form id="search-form" class="search-box"><span>⌕</span><input id="search" aria-label="Поиск в интернете" placeholder="Поиск в интернете или адрес сайта"><button type="submit">→</button></form>
-    <section class="connection-card"><div class="shield">◈</div><div class="connection-copy"><strong id="card-title">Защищённое подключение</strong><p id="card-description">Добавьте настройки своего сервера, чтобы начать.</p></div><button id="card-connect" class="primary">Настроить Mieru</button></section>
+    <section class="connection-card"><div class="shield">◈</div><div class="connection-copy"><strong id="card-title">Защищённое подключение</strong><p id="card-description">Добавьте настройки своего сервера, чтобы начать.</p></div><button id="card-connect" class="primary">Настроить AnyTLS</button></section>
     <div id="page-error" role="alert"></div>
     <section class="saved"><div class="saved-heading"><span>ЗАКЛАДКИ</span><button id="history">История</button></div><div id="bookmarks"></div></section>
-    <footer>Подключение действует внутри этого браузера. Другие приложения используют свою сеть.</footer>
+    <footer>Подключение действует внутри этого браузера. Другие приложения используют свою сеть.<br>Код быстрого подключения можно ввести в адресную строку.</footer>
   </main>
   <section id="settings-panel" hidden>
-    <div class="settings-heading"><div><div class="eyebrow">ПЕРВЫЙ ШАГ</div><h2>Подключите свой Mieru</h2></div><button id="close-settings" title="Закрыть настройки">✕</button></div>
-    <p>Вставьте клиентскую JSON-конфигурацию. Настройки сохраняются на этом устройстве; пароль не попадает в исходный код.</p>
-    <label for="config">Конфигурация Mieru</label>
-    <textarea id="config" spellcheck="false" placeholder='{"profiles": [{"profileName": "default", "user": {"name": "…", "password": "…"}, "servers": [{"domainName": "…", "portBindings": [{"port": 443, "protocol": "TCP"}]}]}], "activeProfile": "default"}'></textarea>
-    <p class="hint">Нужна полная конфигурация клиента с profiles и activeProfile. Ссылки mieru:// пока не поддерживаются. Локальные порты браузер выберет сам.</p>
+    <div class="settings-heading"><div><div class="eyebrow">ПЕРВЫЙ ШАГ</div><h2>Подключите свой AnyTLS</h2></div><button id="close-settings" title="Закрыть настройки">✕</button></div>
+    <p>Введите данные своего сервера AnyTLS. Они сохраняются на этом устройстве. Клиент встроен в браузер.</p>
+    <div class="server-fields">
+      <label>Сервер (IP или домен)<input id="server" placeholder="vpn.example.com" autocomplete="off" spellcheck="false"></label>
+      <label>Порт<input id="server-port" type="number" min="1" max="65535" value="443"></label>
+      <label>Пароль AnyTLS<input id="password" type="password" autocomplete="off" placeholder="Пароль сервера"></label>
+      <label>SNI / имя в сертификате<input id="server-name" placeholder="Необязательно" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <label class="checkbox"><input type="checkbox" id="insecure"> Не проверять сертификат сервера</label>
+    <p class="hint">Проверка сертификата включена по умолчанию. Отключайте её только осознанно для своего сервера с самоподписанным сертификатом. При доступе по IP в SNI укажите домен из сертификата.</p>
+    <details><summary>Импорт JSON или ссылки anytls://</summary>
+      <textarea id="config" spellcheck="false" placeholder='{"server":"vpn.example.com","server_port":443,"password":"YOUR_PASSWORD","server_name":"vpn.example.com"}'></textarea>
+      <p class="hint">Если это поле заполнено, используются данные из него. Поддерживаются простой JSON, один outbound AnyTLS из sing-box и anytls://пароль@сервер:порт?sni=домен. Старый JSON Mieru не подходит.</p>
+    </details>
+    <button id="import-preset" type="button">Импортировать файл быстрого подключения</button>
     <label class="checkbox"><input type="checkbox" id="auto-connect" checked> Подключаться автоматически при запуске</label>
     <div class="privacy-note">При включённой защите браузер не переключается на прямое соединение. Пока подключение не подтверждено, страницы заблокированы.</div>
     <div class="settings-actions"><span id="settings-status" role="status"></span><button id="save-config" class="primary">Сохранить и подключиться</button></div>

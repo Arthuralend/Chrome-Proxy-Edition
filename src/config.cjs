@@ -1,39 +1,52 @@
 'use strict';
 const { isIP } = require('node:net');
 
-function normalizeConfig(input, ports = { socks: 10880, rpc: 10881 }) {
-  if (typeof input !== 'string' || Buffer.byteLength(input) > 128 * 1024) throw new Error('Вставьте JSON-конфигурацию Mieru (до 128 КБ).');
-  let config;
-  try { config = JSON.parse(input); } catch { throw new Error('Неверный JSON. Вставьте полную клиентскую конфигурацию Mieru.'); }
-  if (!config || !Array.isArray(config.profiles) || !config.profiles.length) throw new Error('В конфигурации отсутствует profiles.');
-  if (!config.activeProfile) config.activeProfile = config.profiles[0].profileName;
-  if (!config.profiles.some(p => p.profileName === config.activeProfile)) throw new Error('Не найден активный профиль.');
-  for (const p of config.profiles) {
-    if (typeof p.profileName !== 'string' || !p.profileName.trim()) throw new Error('Укажите имя профиля.');
-    if (!p.user || typeof p.user.name !== 'string' || !p.user.name || !(p.user.password || p.user.hashedPassword)) throw new Error('В профиле нужны имя пользователя и пароль Mieru.');
-    if (!Array.isArray(p.servers) || !p.servers.length) throw new Error('Укажите сервер Mieru.');
-    for (const s of p.servers) {
-      if (!(typeof s.domainName === 'string' && s.domainName.trim()) && !isIP(s.ipAddress || '')) throw new Error('Укажите домен или IP-адрес сервера.');
-      if (!Array.isArray(s.portBindings) || !s.portBindings.length) throw new Error('Укажите порт сервера.');
-      for (const b of s.portBindings) {
-        if (!['TCP', 'UDP'].includes(b.protocol)) throw new Error('Протокол порта должен быть TCP или UDP.');
-        if (b.port !== undefined && b.portRange !== undefined) throw new Error('Укажите port или portRange, но не оба.');
-        if (b.portRange !== undefined) {
-          const match = /^(\d+)-(\d+)$/.exec(b.portRange);
-          if (!match || +match[1] < 1 || +match[2] > 65535 || +match[1] > +match[2]) throw new Error('Неверный диапазон портов.');
-        } else if (!Number.isInteger(b.port) || b.port < 1 || b.port > 65535) throw new Error('Неверный порт сервера.');
-      }
-    }
+function normalizeConfig(input, ports = { socks: 10880 }) {
+  if (typeof input !== 'string' || Buffer.byteLength(input) > 128 * 1024) throw new Error('Вставьте настройки AnyTLS (до 128 КБ).');
+  let source;
+  if (input.trim().startsWith('anytls://')) {
+    let url;
+    try { url = new URL(input.trim()); } catch { throw new Error('Неверная ссылка AnyTLS.'); }
+    if (url.password) throw new Error('AnyTLS использует только пароль: anytls://пароль@сервер:порт.');
+    source = { server: url.hostname.replace(/^\[|\]$/g, ''), server_port: Number(url.port || 443),
+      password: decodeURIComponent(url.username), server_name: url.searchParams.get('sni') || url.searchParams.get('peer') || '',
+      insecure: ['1', 'true'].includes(url.searchParams.get('insecure') || url.searchParams.get('allowInsecure')) };
+    const supported = ['sni', 'peer', 'insecure', 'allowInsecure'];
+    for (const key of url.searchParams.keys()) if (!supported.includes(key)) throw new Error('Неизвестный параметр ссылки AnyTLS: ' + key);
+  } else {
+    try { source = JSON.parse(input); } catch { throw new Error('Неверный JSON или ссылка AnyTLS.'); }
   }
-  // Never expose an imported listener to the LAN. Chromium talks to our local SOCKS endpoint.
-  config.socks5Port = ports.socks;
-  config.rpcPort = ports.rpc;
-  config.socks5ListenLAN = false;
-  delete config.httpProxyPort;
-  delete config.httpProxyListenLAN;
-  delete config.socks5Authentication;
-  config.loggingLevel = 'ERROR';
-  return config;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Нужен объект с настройками AnyTLS.');
+  if (source.profiles) throw new Error('Это настройки Mieru. Введите данные сервера AnyTLS.');
+  if (source.type && source.type !== 'anytls') throw new Error('Поддерживается только AnyTLS.');
+  const host = source.server;
+  if (typeof host !== 'string' || !host || host !== host.trim() || /[\s/\\@?#]/.test(host) || (!isIP(host) && !/^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(host))) throw new Error('Укажите домен или IP-адрес сервера AnyTLS.');
+  if (!Number.isInteger(source.server_port) || source.server_port < 1 || source.server_port > 65535) throw new Error('Укажите порт от 1 до 65535.');
+  if (typeof source.password !== 'string' || !source.password || source.password.length > 4096) throw new Error('Укажите пароль AnyTLS.');
+  if (source.tls !== undefined && (!source.tls || typeof source.tls !== 'object' || Array.isArray(source.tls))) throw new Error('Неверные настройки TLS.');
+  const tlsSource = source.tls || source;
+  if (tlsSource.enabled === false) throw new Error('Для AnyTLS требуется TLS.');
+  if (tlsSource.insecure !== undefined && typeof tlsSource.insecure !== 'boolean') throw new Error('insecure должен быть true или false.');
+  const serverName = tlsSource.server_name || '';
+  if (typeof serverName !== 'string' || /[\s/\\@?#]/.test(serverName)) throw new Error('Неверный SNI.');
+  const tls = { enabled: true, insecure: tlsSource.insecure === true };
+  if (serverName) tls.server_name = serverName;
+  if (tlsSource.certificate !== undefined) {
+    const certs = Array.isArray(tlsSource.certificate) ? tlsSource.certificate : [tlsSource.certificate];
+    if (!certs.length || certs.some(c => typeof c !== 'string' || !c.includes('-----BEGIN CERTIFICATE-----'))) throw new Error('Нужен PEM-сертификат.');
+    tls.certificate = certs;
+  }
+  // Build the network topology ourselves: imported settings cannot add a bypass,
+  // a public listener, a control API, or file paths for credentials/certificates.
+  const outbound = { type: 'anytls', tag: 'proxy', server: host, server_port: source.server_port,
+    password: source.password, tls };
+  return {
+    log: { level: 'error' },
+    dns: { servers: [{ type: 'local', tag: 'bootstrap' }] },
+    inbounds: [{ type: 'socks', tag: 'browser', listen: '127.0.0.1', listen_port: ports.socks }],
+    outbounds: [outbound],
+    route: { final: 'proxy', default_domain_resolver: 'bootstrap' }
+  };
 }
 
 function navigationURL(value) {

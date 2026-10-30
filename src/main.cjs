@@ -5,9 +5,11 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { normalizeConfig, navigationURL } = require('./config.cjs');
 const { VpnController } = require('./vpn.cjs');
-const { MieruEngine } = require('./engine.cjs');
+const { AnyTlsEngine } = require('./engine.cjs');
+const { unlockPreset, validatePreset } = require('./preset.cjs');
 
 // CI launches the actual signed application in a fresh, disconnected profile.
+if (!process.env.CHROME_PROXY_UI_SMOKE) app.setPath('userData', path.join(app.getPath('appData'), 'Mieru Browser'));
 const smoke = process.env.MIERU_BROWSER_SMOKE === '1';
 if (smoke) app.setPath('userData', require('node:fs').mkdtempSync(path.join(require('node:os').tmpdir(), 'mieru-packaged-smoke-')));
 
@@ -130,7 +132,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
   }
   async function readConfig() {
     try { return safeStorage.decryptString(await fs.readFile(encryptedPath)); }
-    catch { throw new Error('Не удалось прочитать настройки. Вставьте конфигурацию Mieru заново.'); }
+    catch { throw new Error('Не удалось прочитать настройки. Вставьте конфигурацию AnyTLS заново.'); }
   }
   async function probe(port) {
     await probeSession.setProxy({ mode: 'fixed_servers', proxyRules: `socks5://127.0.0.1:${port}`, proxyBypassRules: '<-loopback>' });
@@ -149,7 +151,12 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
   async function handle(action, data) {
     switch (action) {
       case 'state': return snapshot();
-      case 'navigate': { const url = navigationURL(data); if (url) { activeTab().url = url; loadTab(activeTab()); send(); } break; }
+      case 'navigate': {
+        const preset = await unlockPreset(typeof data === 'string' ? data.trim() : data, path.join(app.getPath('userData'), 'quick-connect.enc.json'));
+        if (preset) return handle('save-config', { config: preset, autoConnect: true });
+        if (typeof data === 'string' && /^[A-Z]{3,}\d{3,}$/.test(data.trim())) throw new Error('Код подключения не распознан.');
+        const url = navigationURL(data); if (url) { activeTab().url = url; loadTab(activeTab()); send(); } break;
+      }
       case 'new-tab': addTab(); break;
       case 'close-tab': closeTab(data); break;
       case 'select-tab': if (tabs.some(t => t.id === data)) { activeId = data; restoreActive(); } break;
@@ -158,6 +165,19 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
       case 'reload': loadTab(activeTab()); break;
       case 'home': destroyView(activeTab()); Object.assign(activeTab(), { url: '', title: 'Новая вкладка', error: '' }); send(); break;
       case 'settings': settingsOpen = Boolean(data); layout(); send(); break;
+      case 'import-preset': return exclusive(async () => {
+        const result = await dialog.showOpenDialog(win, { title: 'Импорт зашифрованного профиля AnyTLS', properties: ['openFile'], filters: [{ name: 'AnyTLS profile', extensions: ['json'] }] });
+        if (result.canceled) return null;
+        const selected = result.filePaths[0];
+        if ((await fs.stat(selected)).size > 192 * 1024) throw new Error('Слишком большой файл профиля.');
+        const text = await fs.readFile(selected, 'utf8');
+        validatePreset(text);
+        const destination = path.join(app.getPath('userData'), 'quick-connect.enc.json');
+        await fs.writeFile(destination + '.tmp', text, { mode: 0o600 });
+        await fs.rename(destination + '.tmp', destination);
+        settingsOpen = false; layout(); send();
+        return 'Профиль импортирован. Введите код подключения в адресную строку.';
+      });
       case 'save-config': return exclusive(async () => {
         normalizeConfig(data?.config);
         if (!safeStorage.isEncryptionAvailable()) throw new Error('Системное защищённое хранилище недоступно.');
@@ -190,13 +210,18 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
     }
     return null;
   }
-  app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
+  app.on('second-instance', (_, argv) => {
+    if (win) { win.show(); win.focus(); }
+    const command = argv.find(arg => /^[A-Z0-9]{8,64}$/.test(arg));
+    if (command && vpn) handle('navigate', command).catch(error => dialog.showErrorBox('AnyTLS', error.message));
+  });
   app.whenReady().then(async () => {
     const directory = app.getPath('userData');
     await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-    encryptedPath = path.join(directory, 'connection.enc');
+    encryptedPath = path.join(directory, 'anytls-connection.enc');
     preferences = { configured: false, autoConnect: true, bookmarks: [], history: [] };
     try { Object.assign(preferences, JSON.parse(await fs.readFile(path.join(directory, 'preferences.json'), 'utf8'))); } catch {}
+    preferences.configured = await fs.access(encryptedPath).then(() => true, () => false);
     browserSession = session.fromPartition(partition);
     probeSession = session.fromPartition('mieru-probe');
     for (const ses of [browserSession, probeSession]) {
@@ -204,9 +229,9 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
       ses.setPermissionCheckHandler(() => false);
     }
     const binary = app.isPackaged
-      ? path.join(process.resourcesPath, 'mieru', process.platform === 'win32' ? 'mieru.exe' : 'mieru')
-      : path.join(__dirname, '..', 'resources', 'mieru', `${process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'}-${process.arch}`, process.platform === 'win32' ? 'mieru.exe' : 'mieru');
-    engine = new MieruEngine({ binary, directory: path.join(directory, 'mieru-runtime'), onExit: () => { if (!shuttingDown) vpn.fail().catch(() => {}); } });
+      ? path.join(process.resourcesPath, 'sing-box', process.platform === 'win32' ? 'sing-box.exe' : 'sing-box')
+      : path.join(__dirname, '..', 'resources', 'sing-box', `${process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'}-${process.arch}`, process.platform === 'win32' ? 'sing-box.exe' : 'sing-box');
+    engine = new AnyTlsEngine({ binary, directory: path.join(directory, 'anytls-runtime'), onExit: () => { if (!shuttingDown) vpn.fail().catch(() => {}); } });
     await engine.cleanup();
     vpn = new VpnController({ session: browserSession, engine, probe: async port => { await probe(port); currentPort = port; }, onTransition: clearConnections, onState: send });
     browserSession.webRequest.onBeforeRequest((details, callback) => {
@@ -219,7 +244,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
     });
     await vpn.initialize();
     win = new BrowserWindow({ width: 1280, height: 850, minWidth: 840, minHeight: 620,
-      backgroundColor: '#11151d', title: 'Mieru Browser',
+      backgroundColor: '#11151d', title: 'Chrome Proxy Edition',
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webviewTag: false }
     });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -247,7 +272,10 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
       app.quit();
       return;
     }
-    if (preferences.configured && preferences.autoConnect) {
+    const presetArg = process.argv.find(arg => /^[A-Z0-9]{8,64}$/.test(arg));
+    if (presetArg) {
+      handle('navigate', presetArg).catch(() => send());
+    } else if (preferences.configured && preferences.autoConnect) {
       exclusive(async () => { await vpn.connect(await readConfig()); restoreActive(); }).catch(() => send());
     }
     heartbeat = setInterval(async () => {
@@ -258,7 +286,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
       catch { if (!shuttingDown && generation === vpn.generation && vpn.state.mode === 'connected') await vpn.fail(); }
       finally { healthBusy = false; }
     }, 30000);
-  }).catch(error => { dialog.showErrorBox('Mieru Browser', 'Не удалось запустить браузер: ' + error.message); app.quit(); });
+  }).catch(error => { dialog.showErrorBox('Chrome Proxy Edition', 'Не удалось запустить браузер: ' + error.message); app.quit(); });
   app.on('before-quit', event => {
     if (shuttingDown) return;
     event.preventDefault(); shuttingDown = true; clearInterval(heartbeat);

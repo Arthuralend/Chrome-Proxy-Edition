@@ -22,9 +22,9 @@ class VpnController {
   }
   initialize() { return this.enqueue(() => this.seal()); }
   connect(config) { return this.enqueue(async () => {
-    await this.seal('Подключаем Mieru…');
+    await this.seal('Подключаем AnyTLS…');
     const attempt = this.generation;
-    this.emit('connecting', 'Подключаем Mieru…');
+    this.emit('connecting', 'Подключаем AnyTLS…');
     try {
       await this.engine.stop();
       const port = await this.engine.start(config);
@@ -34,7 +34,7 @@ class VpnController {
       await this.probe(port);
       if (attempt !== this.generation) throw new Error('Connection cancelled');
       this.allowRequests = true;
-      this.emit('connected', 'Mieru подключён');
+      this.emit('connected', 'AnyTLS подключён');
     } catch {
       await this.seal('Не удалось подключиться. Проверьте настройки и сервер.');
       await this.engine.stop();
@@ -49,7 +49,7 @@ class VpnController {
     this.allowRequests = true;
     this.emit('direct', 'VPN выключен • прямое подключение');
   }); }
-  fail(message = 'Mieru недоступен. Загрузка страниц заблокирована.') {
+  fail(message = 'AnyTLS недоступен. Загрузка страниц заблокирована.') {
     // Synchronous gate even if another transition is queued.
     this.allowRequests = false;
     this.generation++;

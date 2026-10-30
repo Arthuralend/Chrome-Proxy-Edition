@@ -1,10 +1,12 @@
 node_modules/
 dist/
-resources/mieru/*
-!resources/mieru/.gitkeep
+resources/sing-box/*
+!resources/sing-box/.gitkeep
 *.enc
 *.conf.pb
 runtime-*.json
 .env
 .DS_Store
 __pycache__/
+*.anytls-profile.json
+/src/preset-data.json

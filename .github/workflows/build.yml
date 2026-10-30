@@ -45,7 +45,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm ci
-      - run: python scripts/fetch-mieru.py --os ${{ matrix.os }} --arch ${{ matrix.arch }}
+      - run: python scripts/fetch-sing-box.py --os ${{ matrix.os }} --arch ${{ matrix.arch }}
       - run: npm test
       - run: npm run dist -- --${{ matrix.os }} --${{ matrix.arch }}
       - name: Verify Mac signature and packaged launch
@@ -53,7 +53,7 @@ jobs:
         run: node scripts/verify-mac.cjs ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
-          name: Mieru-Browser-${{ matrix.os }}-${{ matrix.arch }}
+          name: Chrome-Proxy-Edition-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             dist/*.exe
             dist/*.dmg

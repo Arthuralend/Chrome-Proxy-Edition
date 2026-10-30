@@ -9,6 +9,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mieru-ui-smoke-'));
 app.setPath('userData', directory);
 // Allow isolated smoke tests in containers which prohibit UNIX singleton sockets.
 app.requestSingleInstanceLock = () => true;
+process.env.CHROME_PROXY_UI_SMOKE = '1';
 const timeout = setTimeout(() => { console.error('UI smoke timed out'); app.exit(1); }, 15000);
 require('../src/main.cjs');
 app.whenReady().then(() => {

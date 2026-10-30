@@ -24,22 +24,17 @@ async function socksReady(port) {
     socket.on('data', data => { result = Buffer.concat([result, data]); if (result.length >= 2) finish(result[0] === 5 && result[1] === 0); });
   });
 }
-class MieruEngine {
+class AnyTlsEngine {
   constructor({ binary, directory, onExit = () => {} }) { Object.assign(this, { binary, directory, onExit }); this.child = null; }
   async cleanup() { await fs.mkdir(this.directory, { recursive: true, mode: 0o700 }); await fs.rm(path.join(this.directory, 'runtime-config.json'), { force: true }); }
   async start(raw) {
     await this.cleanup();
     const socks = await freePort();
-    let rpc = await freePort();
-    while (rpc === socks) rpc = await freePort();
-    const config = normalizeConfig(raw, { socks, rpc });
+    const config = normalizeConfig(raw, { socks });
     const configPath = path.join(this.directory, 'runtime-config.json');
     await fs.writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
-    const environment = { ...process.env, MIERU_CONFIG_JSON_FILE: configPath };
-    // An empty MIERU_CONFIG_FILE still overrides the JSON path in Mieru.
-    delete environment.MIERU_CONFIG_FILE;
-    const child = spawn(this.binary, ['run'], {
-      env: environment,
+    const child = spawn(this.binary, ['run', '-c', configPath], {
+      env: process.env,
       windowsHide: true, stdio: ['ignore', 'ignore', 'ignore']
     });
     this.child = child;
@@ -52,7 +47,7 @@ class MieruEngine {
       await pause(100);
     }
     await this.stop();
-    throw new Error('Не удалось запустить встроенный Mieru.');
+    throw new Error('Не удалось запустить встроенный AnyTLS (sing-box).');
   }
   async stop() {
     const child = this.child;
@@ -69,4 +64,4 @@ class MieruEngine {
     await this.cleanup();
   }
 }
-module.exports = { MieruEngine, freePort, socksReady };
+module.exports = { AnyTlsEngine, freePort, socksReady };
